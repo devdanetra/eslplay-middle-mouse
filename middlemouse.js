@@ -125,7 +125,7 @@ class User {
 
                     loginData.push(new GameAccountData(action, date, service, ip, dns));
                 });
-            }else throw new Error(CANT_GET_LOGINDATA);
+            } else throw new Error(CANT_GET_LOGINDATA);
         });
         loginData.forEach(element => {
             console.log(element);
@@ -133,7 +133,7 @@ class User {
         return loginData;
     }
 
-    async isBarred(){
+    async isBarred() {
         var isBarred = false;
         await axios.get(`https://play.eslgaming.com/rainbowsix/admin_barrages/${this.id}/`).then((response) => {
             if (response.status == 200) {
@@ -142,11 +142,40 @@ class User {
                 if (elements[0] === undefined)
                     return;
                 console.log(elements[0].innerText);
-                if(elements[0].innerText == "Account is barred at the moment!")
+                if (elements[0].innerText == "Account is barred at the moment!")
                     isBarred = true;
-            }else throw new Error(CANT_GET_BARRAGEDATA);
+            } else throw new Error(CANT_GET_BARRAGEDATA);
         });
         return isBarred;
+    }
+
+    async getBarragesData() {
+        const barragesData = new Array();
+        await axios.get(`https://play.eslgaming.com/rainbowsix/admin_barrages/${this.id}/`).then((response) => {
+            if (response.status == 200) {
+                var page = $.parseHTML(response.data);
+                var elements = $('table', page).children().children();
+                elements = Array.from(elements);
+                elements.splice(0, 2);
+                elements.forEach((element) => {
+                    const dataArr = element.children;
+
+                    //Parsing Data
+                    var createdDate = dataArr[0].innerText;
+                    var beginDate = dataArr[1].innerText.split("-")[0].trim();
+                    var endDate = dataArr[1].innerText.split("-")[1].trim();
+                    var title = dataArr[2].innerText;
+                    var admin = dataArr[3].innerText;
+
+                    barragesData.push(new BarrageData(createdDate,beginDate,endDate,title,admin));
+
+                });
+            } else throw new Error(CANT_GET_BARRAGEDATA);
+        });
+        barragesData.forEach(element => {
+            console.log(element);
+        });
+        return barragesData;
     }
 
     async getAdminExceptionsData() {
@@ -168,7 +197,7 @@ class User {
                     var league = dataArr[3].innerText;
                     adminExceptionsData.push(new AdminExceptionsData(createdDate, points, exception, admin, league));
                 });
-            }else throw new Error(CANT_GET_ADMINEXCEPTIONDATA);
+            } else throw new Error(CANT_GET_ADMINEXCEPTIONDATA);
         });
         adminExceptionsData.forEach(element => {
             console.log(element);
@@ -176,7 +205,7 @@ class User {
         return adminExceptionsData;
     }
 
-    async getGameAccountsData(){
+    async getGameAccountsData() {
         const gameAccountsData = new Array();
         await axios.get(`https://play.eslgaming.com/rainbowsix/player/gameaccounts/${this.id}/`).then((response) => {
             if (response.status == 200) {
@@ -194,9 +223,9 @@ class User {
                     var url = dataArr[1].children[1].href.trim();
                     var active = iconHTML.includes("/active_y.gif");
                     var createdDate = active.dataArr[2].innerText;
-                    gameAccountsData.push(new GameAccountData(platform, nick, url, active,createdDate));
+                    gameAccountsData.push(new GameAccountData(platform, nick, url, active, createdDate));
                 });
-            }else throw new Error(CANT_GET_GAMEACCOUNTDATA);
+            } else throw new Error(CANT_GET_GAMEACCOUNTDATA);
         });
         gameAccountsData.forEach(element => {
             console.log(element);
@@ -254,12 +283,22 @@ class GameAccountData {
     };
 }
 
-class AdminExceptionsData{
-    constructor(createdDate,points,exception,admin,league){
+class AdminExceptionsData {
+    constructor(createdDate, points, exception, admin, league) {
         this.createdDate = createdDate;
         this.points = points;
         this.exception = exception;
         this.admin = admin;
         this.league = league;
+    };
+}
+
+class BarrageData {
+    constructor(createdDate, beginDate, endDate, title, admin) {
+        this.createdDate = createdDate;
+        this.beginDate = beginDate;
+        this.endDate = endDate;
+        this.title = title;
+        this.admin = admin;
     };
 }
