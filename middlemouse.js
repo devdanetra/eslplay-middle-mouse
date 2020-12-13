@@ -55,7 +55,9 @@ class MiddleMouseUtils {
 
     static CANT_GET_LOGINDATA = "Can't get ip logs. Maybe you don't have permissions.";
     static CANT_GET_PLAYER = "Can't get ip logs. Maybe there is no player with this id.";
-    static CANT_REACH_GAMEACCOUNTDATA = "Can't reach gameaccount logs. Maybe there is no player with this id."
+    static CANT_GET_GAMEACCOUNTDATA = "Can't reach gameaccount logs. Maybe there is no player with this id.";
+    static CANT_GET_BARRAGEDATA = "Can't reach barrages logs. Maybe there is no player with this id.";
+    static CANT_GET_ADMINEXCEPTIONDATA = "Can't reach exceptions logs. Maybe there is no player with this id.";
 
 
 }
@@ -94,20 +96,20 @@ class User {
 
     constructor(id, name, nick, registerDate, age, gender, nationality, country, mainTeam, homepage) {
         this.id = id;
-        this.name = name;
+        this.name = name != '--' ? name : undefined;
         this.nick = nick;
         this.registerDate = registerDate;
-        this.age = age;
-        this.gender = gender;
-        this.nationality = nationality;
-        this.country = country;
-        this.mainTeam = mainTeam;
-        this.homepage = homepage;
+        this.age = age != '--' ? age : undefined;
+        this.gender = gender != '--' ? gender : undefined;
+        this.nationality = nationality != '--' ? nationality : undefined;
+        this.country = country != '--' ? country : undefined;
+        this.mainTeam = mainTeam != '--' ? mainTeam : undefined;
+        this.homepage = homepage != '--' ? homepage : undefined;
     }
 
     async getLoginData() {
         const loginData = new Array();
-        await axios.get(`https://play.eslgaming.com/rainbowsix/player/logins/${this.id}/`).then((response) => { //getting user page from id
+        await axios.get(`https://play.eslgaming.com/rainbowsix/player/logins/${this.id}/`).then((response) => {
             if (response.status == 200) {
                 var page = $.parseHTML(response.data);
                 var elements = $('.esl_compact_zebra', page).children().children();
@@ -115,40 +117,91 @@ class User {
                 elements.splice(0, 1);
                 elements.forEach((element) => {
                     const dataArr = element.children;
-                    console.log(dataArr[2].innerText);
-                    loginData.push(new GameAccountData(dataArr[0].innerText, dataArr[1].innerText.trim(), dataArr[2].innerText.trim(), dataArr[3].innerText.trim(), dataArr[4].innerText.trim()));
+                    var action = dataArr[0].innerText;
+                    var date = dataArr[1].innerText.trim();
+                    var service = dataArr[2].innerText.trim();
+                    var ip = dataArr[3].innerText.trim();
+                    var dns = dataArr[4].innerText.trim();
+
+                    loginData.push(new GameAccountData(action, date, service, ip, dns));
                 });
-            }else throw new Error(CANT_REACH_LOGINDATA);
+            }else throw new Error(CANT_GET_LOGINDATA);
         });
         loginData.forEach(element => {
             console.log(element);
         });
+        return loginData;
     }
 
-    getPenalties() {
-        //todo make this working
+    async isBarred(){
+        var isBarred = false;
+        await axios.get(`https://play.eslgaming.com/rainbowsix/admin_barrages/${this.id}/`).then((response) => {
+            if (response.status == 200) {
+                var page = $.parseHTML(response.data);
+                var elements = $('b', page);
+                if (elements[0] === undefined)
+                    return;
+                console.log(elements[0].innerText);
+                if(elements[0].innerText == "Account is barred at the moment!")
+                    isBarred = true;
+            }else throw new Error(CANT_GET_BARRAGEDATA);
+        });
+        return isBarred;
     }
 
-    async getGameAccountsData() {
+    async getAdminExceptionsData() {
+        const adminExceptionsData = new Array();
+        await axios.get(`https://play.eslgaming.com/rainbowsix/admin_exceptions/${this.id}/`).then((response) => {
+            if (response.status == 200) {
+                var page = $.parseHTML(response.data);
+                var elements = $('table', page).children().children();
+                elements = Array.from(elements);
+                elements.splice(0, 2);
+                elements.forEach((element) => {
+                    const dataArr = element.children;
+
+                    //Parsing Data
+                    var createdDate = dataArr[0].innerText;
+                    var points = dataArr[1].innerText;
+                    var exception = dataArr[2].children[0].innerText
+                    var admin = dataArr[2].children[1].innerText.trim()
+                    var league = dataArr[3].innerText;
+                    adminExceptionsData.push(new AdminExceptionsData(createdDate, points, exception, admin, league));
+                });
+            }else throw new Error(CANT_GET_ADMINEXCEPTIONDATA);
+        });
+        adminExceptionsData.forEach(element => {
+            console.log(element);
+        });
+        return adminExceptionsData;
+    }
+
+    async getGameAccountsData(){
         const gameAccountsData = new Array();
-        await axios.get(`https://play.eslgaming.com/rainbowsix/player/gameaccounts/${this.id}/`).then((response) => { //getting user page from id
+        await axios.get(`https://play.eslgaming.com/rainbowsix/player/gameaccounts/${this.id}/`).then((response) => {
             if (response.status == 200) {
                 var page = $.parseHTML(response.data);
                 var elements = $('.vs_rankings_table', page).children().children();
                 elements = Array.from(elements);
                 elements.splice(0, 2);
-                console.log(elements);
                 elements.forEach((element) => {
                     const dataArr = element.children;
                     var iconHTML = new String(dataArr[1].children[0].outerHTML);
+
+                    //Parsing results
+                    var platform = dataArr[0].innerText.trim();
+                    var nick = dataArr[1].innerText.trim();
+                    var url = dataArr[1].children[1].href.trim();
                     var active = iconHTML.includes("/active_y.gif");
-                    gameAccountsData.push(new GameAccountData(dataArr[0].innerText.trim(), dataArr[1].innerText.trim(), dataArr[1].children[1].href.trim(), active,dataArr[2].innerText));
+                    var createdDate = active.dataArr[2].innerText;
+                    gameAccountsData.push(new GameAccountData(platform, nick, url, active,createdDate));
                 });
-            }else throw new Error(CANT_REACH_GAMEACCOUNTDATA);
+            }else throw new Error(CANT_GET_GAMEACCOUNTDATA);
         });
         gameAccountsData.forEach(element => {
             console.log(element);
         });
+        return gameAccountsData;
     }
 
     static async byID(id) {
@@ -164,16 +217,16 @@ class User {
                     results.push(e.innerText.trim());
                 });
 
-                //Parsing results and checking if not defined by user.
-                name = (results[0] != '--') ? results[0] : undefined;
-                nick = (results[1] != '--') ? results[1] : undefined;
-                registerDate = (results[2] != '--') ? results[2] : undefined;
-                age = (results[3].split("/")[0].trim() != '-') ? results[3].split("/")[0].trim() : undefined;
-                gender = (results[3].split("/")[1].trim() != '-') ? results[3].split("/")[1].trim() : undefined;
-                nationality = (results[4] != '--') ? results[4] : undefined;
-                country = (results[5] != '--') ? results[5] : undefined;
-                mainTeam = (results[6] != '--') ? results[6] : undefined;
-                homepage = (results[7] != '--') ? results[7] : undefined;
+                //Parsing results
+                name = results[0];
+                nick = results[1];
+                registerDate = results[2];
+                age = results[3].split("/")[0].trim();
+                gender = results[3].split("/")[1].trim();
+                nationality = results[4];
+                country = results[5];
+                mainTeam = results[6];
+                homepage = results[7];
                 console.log(name + " | " + nick + " | " + registerDate + " | " + age + " | " + gender + " | " + nationality + " | " + country + "| " + mainTeam); //TO REMOVE ON RELEASE
             } else throw Error(CANT_GET_PLAYER);
         });
@@ -198,5 +251,15 @@ class GameAccountData {
         this.url = url;
         this.active = active;
         this.createdDate = createdDate;
+    };
+}
+
+class AdminExceptionsData{
+    constructor(createdDate,points,exception,admin,league){
+        this.createdDate = createdDate;
+        this.points = points;
+        this.exception = exception;
+        this.admin = admin;
+        this.league = league;
     };
 }
