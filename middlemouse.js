@@ -43,12 +43,7 @@ class MiddleMouse {
         } else return MiddleMouseUtils.CANT_REACH_TEAMID;
     }
 
-    static get teamMembers() {
-        //todo make this working
-    }
-
 }
-
 
 class MiddleMouseUtils {
     static ID_REGEX = new RegExp('^[0-9]+$');
@@ -60,12 +55,34 @@ class MiddleMouseUtils {
 
 }
 
-class LoginData{
-    constructor(ip,date,service){
-        this.ip=ip;
-        this.date = date;
-        this.service = service;
-    };
+class TeamMember{
+    constructor(id,role,permission,memberSince){
+        this.id = id;
+        this.role = role;
+        this.permission = permission;
+        this.memberSince = memberSince;
+    }
+}
+
+class Team{
+    constructor(id, name, registerDate, homepage, nationality){
+        this.id = id;
+        this.name = name;
+        this.registerDate = registerDate;
+        this.homepage = homepage;
+        this.nationality = nationality;
+    }
+
+    static async byID(){
+        //todo make this working
+    }
+    getMembers(){
+        //todo make this working
+    }
+
+    getPenalties(){
+        //todo make this working
+    }
 }
 
 class User {
@@ -83,11 +100,19 @@ class User {
         this.homepage = homepage;
     }
 
-    getAllLoginData(){
+    getLoginData(){
         //todo make this working
     }
 
-    static async getFromID(id) { //todo add error handling
+    getPenalties(){
+        //todo make this working
+    }
+
+    getGameAccountsData(){
+        //todo make this working
+    }
+
+    static async byID(id) {
         var name,nick,registerDate,age,gender,nationality,country,mainTeam,homepage;
         await axios.get(`https://play.eslgaming.com/player/${id}/`).then((response) => { //getting user page from id
             if (response.status == 200) {
@@ -100,22 +125,27 @@ class User {
                     results.push(e.innerText.trim());
                 });
 
-                //PARSING RESULTS
-                name = results[0];
-                nick = results[1];
-                registerDate = results[2];
-                age = results[3].split("/")[0].trim();
-                gender = results[3].split("/")[1].trim();
-                nationality = results[4];
-                country = results[5];
-                mainTeam = results[6];
-                homepage = results[7];
-
-                console.log(name + " | " + nick + " | " + registerDate + " | " + age + " | " + gender + " | " + nationality + " | " + country);
+                //Parsing results and checking if not defined by user.
+                name =  (results[0] != '--') ? results[0] : undefined;
+                nick = (results[1] != '--') ? results[1] : undefined;
+                registerDate = (results[2]!= '--') ? results[2] : undefined;
+                age = (results[3] != '--') ? results[3].split("/")[0].trim() : undefined;
+                gender = (results[3] != '--') ? results[3].split("/")[1].trim() : undefined;
+                nationality = (results[4] != '--') ? results[4] : undefined;
+                country = (results[5] != '--') ? results[5] : undefined;
+                mainTeam = (results[6] != '--') ? results[6] : undefined;
+                homepage = (results[7] != '--') ? results[7] : undefined;
 
             } else return console.log("unable to fetch player id " + id);
         });
         return new User(id,name, nick, registerDate, age, gender, nationality, country,mainTeam,homepage);
-
     }
+}
+
+class LoginData{
+    constructor(ip,date,service){
+        this.ip=ip;
+        this.date = date;
+        this.service = service;
+    };
 }
