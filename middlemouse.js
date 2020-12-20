@@ -53,13 +53,12 @@ class MiddleMouseUtils {
     static CANT_REACH_PLAYERID = "Can't reach player ID. You can't use this command here.";
     static CANT_REACH_TEAMID = "Can't reach team ID. You can't use this command here.";
 
+    static CANT_GET_PLAYER = "Can't get player info. Maybe there is no player with this id.";
+    static CANT_GET_TEAM = "Can't get team info. Maybe there is no team with this id.";
     static CANT_GET_LOGINDATA = "Can't get ip logs. Maybe you don't have permissions.";
-    static CANT_GET_PLAYER = "Can't get ip logs. Maybe there is no player with this id.";
     static CANT_GET_GAMEACCOUNTDATA = "Can't reach gameaccount logs. Maybe there is no player with this id.";
     static CANT_GET_BARRAGEDATA = "Can't reach barrages logs. Maybe there is no player with this id.";
     static CANT_GET_ADMINEXCEPTIONDATA = "Can't reach exceptions logs. Maybe there is no player with this id.";
-
-
 }
 
 class TeamMember {
@@ -72,19 +71,75 @@ class TeamMember {
 }
 
 class Team {
-    constructor(id, name, registerDate, homepage, nationality) {
+    constructor(id, name, shorthandle, registerDate, homepage, nationality) {
         this.id = id;
         this.name = name;
+        this.shorthandle = shorthandle;
         this.registerDate = registerDate;
         this.homepage = homepage;
         this.nationality = nationality;
     }
 
-    static async byID() {
-        //todo make this working
+    static async byID(id) {
+        var name, shorthandle, registerDate, homepage, nationality;
+        await axios.get(`https://play.eslgaming.com/team/${id}/`).then((response) => { //getting user page from id
+            if (response.status == 200) {
+
+                var page = $.parseHTML(response.data);
+                var elements = $('.playerprofile_stammdaten', page).children().children().children(); //Getting profile data
+
+                const results = new Array();
+                elements = Array.from(elements);
+                elements.forEach((e) => {
+                    if(e.innerText != "Shorthandle" && e.innerText != "homepage"){
+                        results.push(e.innerText);
+                    }else{
+                        if(e.innerText == "Shorthandle")
+                            shorthandle = elements[elements.indexOf(e) + 1].innerText;
+                        else if(e.innerText == "homepage")
+                            homepage = elements[elements.indexOf(e) + 1].innerText;
+                        elements.splice(elements.indexOf(e),1);
+                    }
+                });
+
+                //Parsing results , temporary solution
+                if(elements.length>3){
+                    name = results[1];
+                    nationality = results[results.length-1];
+                }else{
+                    name = results[1];
+                    registerDate = results[3];
+                    nationality = results[5];
+                }
+            } else throw Error(CANT_GET_TEAM);
+        });
+        return new Team(id, name, shorthandle, registerDate, homepage, nationality);
     }
-    getMembers() {
-        //todo make this working
+    async getMembers() {
+        const members = new Array();
+        await axios.get(`https://play.eslgaming.com/rainbowsix/team/members/${this.id}/?adminview=1`).then((response) => {
+            if (response.status == 200) {
+                var page = $.parseHTML(response.data);
+                var elements = $('.esl_compact_zebra', page).children().children();
+                elements = Array.from(elements);
+                console.log(elements);
+                // elements.forEach((element) => {
+                //     const dataArr = element.children;
+                //     var action = dataArr[0].innerText;
+                //     var date = dataArr[1].innerText.trim();
+                //     var service = dataArr[2].innerText.trim();
+                //     var ip = dataArr[3].innerText.trim();
+                //     var dns = dataArr[4].innerText.trim();
+                //     loginData.push(new GameAccountData(action, date, service, ip, dns));
+                // });
+        //     } else throw new Error(CANT_GET_LOGINDATA);
+        // });
+        // loginData.forEach(element => {
+        //     console.log(element);
+        // });
+        return members;
+            }
+        });
     }
 
     getPenalties() {
