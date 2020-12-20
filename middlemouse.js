@@ -7,20 +7,19 @@ class MiddleMouse {
         return ($('.userbox__profile__nickname').text().trim());
     }
 
-    static get adminID() {
+    static get AdminID() {
         var path = $('.userbox__profile').find("a").attr("href"); //getting path to admin profile
         var id = path.replace(/\D/g, ''); //getting only ID numbers
         return id;
     }
 
-    static get playerID() {
-        var path = window.location.pathname; //getting current path
+    static getPlayerID(path = window.location.pathname) {
+        console.log(path);
         var activationPaths = MiddleMouseUtils.PLAYERID_ACTIVATION_PATH_REGEX.exec(path); //getting list of paths where playerID can be reached and scraped from the current window path.
         if (activationPaths != null) { //checking if we can actually find the playerID
             var pathArray = path.split("/");
             var mainPath = activationPaths[0].replaceAll("/", ""); //getting main path 
             for (var j = pathArray.indexOf(mainPath); j < pathArray.length; j++) {
-                console.log("Checking : " + pathArray[j]);
                 if (MiddleMouseUtils.ID_REGEX.test(pathArray[j])) {
                     return pathArray[j]; //getting only ID numbers
                 }
@@ -28,14 +27,12 @@ class MiddleMouse {
         } else return MiddleMouseUtils.CANT_REACH_PLAYERID;
     }
 
-    static get teamID() {
-        var path = window.location.pathname; //getting current path
+    static getTeamID(path = window.location.pathname) {
         var activationPaths = MiddleMouseUtils.TEAMID_ACTIVATION_PATH_REGEX.exec(path); //getting list of paths where teamID can be reached and scraped from the current window path.
         if (activationPaths != null) { //checking if we can actually find the teamID
             var pathArray = path.split("/");
             var mainPath = activationPaths[0].replaceAll("/", ""); //getting main path 
             for (var j = pathArray.indexOf(mainPath); j < pathArray.length; j++) {
-                console.log("Checking : " + pathArray[j]);
                 if (MiddleMouseUtils.ID_REGEX.test(pathArray[j])) {
                     return pathArray[j]; //getting only ID numbers
                 }
@@ -56,9 +53,10 @@ class MiddleMouseUtils {
     static CANT_GET_PLAYER = "Can't get player info. Maybe there is no player with this id.";
     static CANT_GET_TEAM = "Can't get team info. Maybe there is no team with this id.";
     static CANT_GET_LOGINDATA = "Can't get ip logs. Maybe you don't have permissions.";
+    static CANT_GET_TEAM_MEMBERS = "Can't get team members. Maybe there is no team with this id.";
     static CANT_GET_GAMEACCOUNTDATA = "Can't reach gameaccount logs. Maybe there is no player with this id.";
-    static CANT_GET_BARRAGEDATA = "Can't reach barrages logs. Maybe there is no player with this id.";
-    static CANT_GET_ADMINEXCEPTIONDATA = "Can't reach exceptions logs. Maybe there is no player with this id.";
+    static CANT_GET_PLAYER_BARRAGEDATA = "Can't reach barrages logs. Maybe there is no player with this id.";
+    static CANT_GET_PLAYER_ADMINEXCEPTIONDATA = "Can't reach exceptions logs. Maybe there is no player with this id.";
 }
 
 class TeamMember {
@@ -91,22 +89,22 @@ class Team {
                 const results = new Array();
                 elements = Array.from(elements);
                 elements.forEach((e) => {
-                    if(e.innerText != "Shorthandle" && e.innerText != "homepage"){
+                    if (e.innerText != "Shorthandle" && e.innerText != "homepage") {
                         results.push(e.innerText);
-                    }else{
-                        if(e.innerText == "Shorthandle")
+                    } else {
+                        if (e.innerText == "Shorthandle")
                             shorthandle = elements[elements.indexOf(e) + 1].innerText;
-                        else if(e.innerText == "homepage")
+                        else if (e.innerText == "homepage")
                             homepage = elements[elements.indexOf(e) + 1].innerText;
-                        elements.splice(elements.indexOf(e),1);
+                        elements.splice(elements.indexOf(e), 1);
                     }
                 });
 
                 //Parsing results , temporary solution
-                if(elements.length>3){
+                if (elements.length > 3) {
                     name = results[1];
-                    nationality = results[results.length-1];
-                }else{
+                    nationality = results[results.length - 1];
+                } else {
                     name = results[1];
                     registerDate = results[3];
                     nationality = results[5];
@@ -117,29 +115,36 @@ class Team {
     }
     async getMembers() {
         const members = new Array();
-        await axios.get(`https://play.eslgaming.com/rainbowsix/team/members/${this.id}/?adminview=1`).then((response) => {
+        await axios.get(`https://play.eslgaming.com/rainbowsix/team/members/${this.id}`).then((response) => {
             if (response.status == 200) {
                 var page = $.parseHTML(response.data);
-                var elements = $('.esl_compact_zebra', page).children().children();
+                var elements = $('table[cellpadding*="2"]', page).children().children();
                 elements = Array.from(elements);
                 console.log(elements);
-                // elements.forEach((element) => {
-                //     const dataArr = element.children;
-                //     var action = dataArr[0].innerText;
-                //     var date = dataArr[1].innerText.trim();
-                //     var service = dataArr[2].innerText.trim();
-                //     var ip = dataArr[3].innerText.trim();
-                //     var dns = dataArr[4].innerText.trim();
-                //     loginData.push(new GameAccountData(action, date, service, ip, dns));
-                // });
-        //     } else throw new Error(CANT_GET_LOGINDATA);
-        // });
-        // loginData.forEach(element => {
-        //     console.log(element);
-        // });
-        return members;
-            }
+                var currentRole = elements[0].outerText;
+                elements.forEach((element) => {
+                    if (element.firstChild.className == "TitleM") { //detecting roles
+                        currentRole = element.outerText;
+                        return;
+                    }
+                    if (element.firstElementChild.className == "table1_header") { //detecting headers
+                        console.log("Skipping empty line");
+                        return;
+                    }
+                    var dataArr = element.children;
+                    var playerPath = dataArr[1].children[0].children[0].children[0].children[2].children[0].children[0].href;
+                    var id = MiddleMouse.getPlayerID(playerPath);
+                    var role = currentRole;
+                    var permission = dataArr[2].innerText;
+                    var memberSince = dataArr[3].innerText;
+                    members.push(new TeamMember(id, role, permission, memberSince));
+                });
+            } else throw new Error(CANT_GET_TEAM_MEMBERS);
         });
+        members.forEach(element => {
+            console.log(element);
+        });
+        return members;
     }
 
     getPenalties() {
@@ -199,7 +204,7 @@ class User {
                 console.log(elements[0].innerText);
                 if (elements[0].innerText == "Account is barred at the moment!")
                     isBarred = true;
-            } else throw new Error(CANT_GET_BARRAGEDATA);
+            } else throw new Error(CANT_GET_PLAYER_BARRAGEDATA);
         });
         return isBarred;
     }
@@ -222,10 +227,10 @@ class User {
                     var title = dataArr[2].innerText;
                     var admin = dataArr[3].innerText;
 
-                    barragesData.push(new BarrageData(createdDate,beginDate,endDate,title,admin));
+                    barragesData.push(new BarrageData(createdDate, beginDate, endDate, title, admin));
 
                 });
-            } else throw new Error(CANT_GET_BARRAGEDATA);
+            } else throw new Error(CANT_GET_PLAYER_BARRAGEDATA);
         });
         barragesData.forEach(element => {
             console.log(element);
@@ -252,7 +257,7 @@ class User {
                     var league = dataArr[3].innerText;
                     adminExceptionsData.push(new AdminExceptionsData(createdDate, points, exception, admin, league));
                 });
-            } else throw new Error(CANT_GET_ADMINEXCEPTIONDATA);
+            } else throw new Error(CANT_GET_PLAYER_ADMINEXCEPTIONDATA);
         });
         adminExceptionsData.forEach(element => {
             console.log(element);
