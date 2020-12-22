@@ -40,6 +40,27 @@ class MiddleMouse {
         } else return MiddleMouseUtils.CANT_REACH_TEAMID;
     }
 
+    static async searchUserByNick(nick){ //getting first 100 players matching that query
+        const results = new Array();
+        var size;
+        await axios.get(`https://play.eslgaming.com/database/players/search/?searchstring=${nick}&searchtype=admin`).then(async (response) => { //getting user page from id
+            if (response.status == 200) {
+                var page = $.parseHTML(response.data);
+                var elements = $('table[cellpadding*="2"]', page).children().children();
+                elements.splice(0,1);
+                elements = Array.from(elements);
+                if(elements[0].children.length == 1)
+                    throw Error(NO_RESULTS_FOR_QUERY);
+                size = elements.length;
+                elements.forEach(async element => {
+                    var user = await User.byID(MiddleMouse.getPlayerID(element.children[4].children[1].href));
+                    results.push(user);
+                });
+            } else throw Error(CANT_REACH_SEARCH);
+        });
+        return new SearchResult(nick, size, results);
+    }
+
 }
 
 class MiddleMouseUtils {
@@ -49,6 +70,7 @@ class MiddleMouseUtils {
 
     static CANT_REACH_PLAYERID = "Can't reach player ID. You can't use this command here.";
     static CANT_REACH_TEAMID = "Can't reach team ID. You can't use this command here.";
+    static CANT_REACH_SEARCH = "Can't reach search and tools utility. Are you sure"
 
     static CANT_GET_PLAYER = "Can't get player info. Maybe there is no player with this id.";
     static CANT_GET_TEAM = "Can't get team info. Maybe there is no team with this id.";
@@ -57,6 +79,16 @@ class MiddleMouseUtils {
     static CANT_GET_GAMEACCOUNTDATA = "Can't reach gameaccount logs. Maybe there is no player with this id.";
     static CANT_GET_PLAYER_BARRAGEDATA = "Can't reach barrages logs. Maybe there is no player with this id.";
     static CANT_GET_PLAYER_ADMINEXCEPTIONDATA = "Can't reach exceptions logs. Maybe there is no player with this id.";
+
+    static NO_RESULTS_FOR_QUERY = "Search query had no result.";
+}
+
+class SearchResult{
+    constructor(query, size, results){
+        this.query = query;
+        this.size = size;
+        this.results = results;
+    }
 }
 
 class TeamMember {
@@ -310,13 +342,17 @@ class User {
                 name = results[0];
                 nick = results[1];
                 registerDate = results[2];
-                age = results[3].split("/")[0].trim();
-                gender = results[3].split("/")[1].trim();
+                if(results[3] === undefined){
+                    age =" - ";
+                    gender = " - ";
+                }else{ 
+                    age = results[3].split("/")[0].trim();
+                    gender = results[3].split("/")[1].trim();
+                }
                 nationality = results[4];
                 country = results[5];
                 mainTeam = results[6];
                 homepage = results[7];
-                console.log(name + " | " + nick + " | " + registerDate + " | " + age + " | " + gender + " | " + nationality + " | " + country + "| " + mainTeam); //TO REMOVE ON RELEASE
             } else throw Error(CANT_GET_PLAYER);
         });
         return new User(id, name, nick, registerDate, age, gender, nationality, country, mainTeam, homepage);
