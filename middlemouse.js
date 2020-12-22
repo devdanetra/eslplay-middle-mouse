@@ -14,7 +14,6 @@ class MiddleMouse {
     }
 
     static getPlayerID(path = window.location.pathname) {
-        console.log(path);
         var activationPaths = MiddleMouseUtils.PLAYERID_ACTIVATION_PATH_REGEX.exec(path); //getting list of paths where playerID can be reached and scraped from the current window path.
         if (activationPaths != null) { //checking if we can actually find the playerID
             var pathArray = path.split("/");
@@ -40,10 +39,10 @@ class MiddleMouse {
         } else return MiddleMouseUtils.CANT_REACH_TEAMID;
     }
 
-    static async searchUserByNick(nick){ //getting first 100 players matching that query
+    static async searchUsers(query,property){ //getting first 100 players matching that query
         const results = new Array();
         var size;
-        await axios.get(`https://play.eslgaming.com/database/players/search/?searchstring=${nick}&searchtype=admin`).then(async (response) => { //getting user page from id
+        await axios.get(`https://play.eslgaming.com/database/players/search/?searchstring=${query}&searchtype=admin`).then(async (response) => { //getting user page from id
             if (response.status == 200) {
                 var page = $.parseHTML(response.data);
                 var elements = $('table[cellpadding*="2"]', page).children().children();
@@ -52,15 +51,14 @@ class MiddleMouse {
                 if(elements[0].children.length == 1)
                     throw Error(NO_RESULTS_FOR_QUERY);
                 size = elements.length;
-                elements.forEach(async element => {
-                    var user = await User.byID(MiddleMouse.getPlayerID(element.children[4].children[1].href));
-                    results.push(user);
-                });
+                for(var x in elements){
+                    console.log(x);
+                    results.push(await User.byID(MiddleMouse.getPlayerID(elements[x].children[4].children[1].href)));
+                };
             } else throw Error(CANT_REACH_SEARCH);
         });
-        return new SearchResult(nick, size, results);
+        return new SearchResult(query, size, results, property);
     }
-
 }
 
 class MiddleMouseUtils {
@@ -84,10 +82,26 @@ class MiddleMouseUtils {
 }
 
 class SearchResult{
-    constructor(query, size, results){
+    constructor(query, size, results, property) {
+        this.exactMatch = SearchResult.getExactMatch(results,query,property);
+        this.property = property;
         this.query = query;
         this.size = size;
-        this.results = results;
+        this.matched = results;     
+    }
+
+    static getExactMatch(results,query,property){
+        var exactMatch = new Array();
+
+        if(property == "ip"){
+            return results;
+        }
+        results.forEach(e =>{
+                    if(e[property] == query)
+                        exactMatch.push(e);
+            });
+
+        return exactMatch;
     }
 }
 
